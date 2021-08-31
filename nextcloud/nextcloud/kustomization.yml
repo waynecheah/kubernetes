@@ -1,0 +1,7 @@
+resources:
+  - persistentvolume.yml
+  - persistentvolumeclaim.yml
+  - secret.yml
+  - deployment.yml
+  - service.yml
+  - ingress.yml

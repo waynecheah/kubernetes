@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size:  "50m"
+  name: nextcloud-ingress
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: app
+spec:
+  tls:
+  - hosts:
+    - nextcloud.kokweng.net
+    secretName: nextcloud-prod-tls
+  rules:
+  - host: nextcloud.kokweng.net
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: nextcloud-app
+            port:
+              number: 80

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud-mariadb
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: mariadb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+      component: mariadb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+        component: mariadb
+    spec:
+      containers:
+      - args:
+        - --transaction-isolation=READ-COMMITTED
+        - --binlog-format=ROW
+        - --max-connections=1000
+        - --innodb-read-only-compressed=OFF
+        env:
+        - name: MYSQL_DATABASE
+          value: nextcloud_db
+        - name: MYSQL_USER
+          value: nextcloud_user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-mariadb-secrets
+              key: userPassword
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-mariadb-secrets
+              key: rootPassword
+        image: mariadb:latest
+        name: mariadb
+        ports:
+        - containerPort: 3306
+          name: mariadb
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mariadb-persistent-storage
+      restartPolicy: Always
+      volumes:
+      - name: mariadb-persistent-storage
+        persistentVolumeClaim:
+          claimName: nextcloud-mariadb-pvc

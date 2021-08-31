@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud-app
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: app
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+      component: app
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+        component: app
+        tier: frontend
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_HOST
+          value: nextcloud-mariadb
+        - name: REDIS_HOST
+          value: nextcloud-redis
+        - name: MYSQL_DATABASE
+          value: nextcloud_db
+        - name: MYSQL_USER
+          value: nextcloud_user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-mariadb-secrets
+              key: userPassword
+        - name: MYSQl_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-mariadb-secrets
+              key: rootPassword
+        - name: NEXTCLOUD_ADMIN_USER
+          value: admin
+        - name: NEXTCLOUD_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-app-secrets
+              key: adminPassword
+        - name: NEXTCLOUD_TRUSTED_DOMAINS
+          value: nextcloud.kube.home nextcloud.kokweng.net
+        - name: SMTP_HOST
+          value: smtp.gmail.com
+        - name: SMTP_SECURE
+          value: tls
+        - name: SMTP_PORT
+          value: "587"
+        - name: SMTP_AUTHTYPE
+          value: LOGIN
+        - name: SMTP_NAME
+          value: cheahkokweng@gmail.com
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-app-secrets
+              key: emailPassword
+        - name: MAIL_FROM_ADDRESS
+          value: noreply@kokweng.net
+        - name: MAIL_DOMAIN
+          value: kokweng.net
+        image: nextcloud:apache
+        imagePullPolicy: Always
+        name: nextcloud
+        ports:
+        - containerPort: 80
+          name: nextcloud
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: app-persistent-storage
+      restartPolicy: Always
+      volumes:
+      - name: app-persistent-storage
+        persistentVolumeClaim:
+          claimName: nextcloud-app-pvc
