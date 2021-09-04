@@ -25,7 +25,7 @@ spec:
     - name: alertmanager-main
       namespace: monitoring
       port: web
-  externalUrl: http://prometheus.192.168.1.22.nip.io
+  externalUrl: http://prometheus.192.168.1.240.nip.io
   image: prom/prometheus:v2.19.1
   nodeSelector:
     kubernetes.io/os: linux
@@ -49,4 +49,16 @@ spec:
   serviceAccountName: prometheus-k8s
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
+  storage:
+    volumeClaimTemplate:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+        storageClassName: manual
+        volumeName: monitoring-prometheus
   version: v2.19.1

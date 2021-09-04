@@ -1,0 +1,10 @@
+namespace: nextcloud
+namePrefix: nextcloud-
+
+commonLabels:
+  app: nextcloud
+
+bases:
+  - redis
+  - mariadb
+  - nextcloud

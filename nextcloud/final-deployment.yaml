@@ -1,0 +1,335 @@
+apiVersion: v1
+data:
+  adminPassword: MW92ZXJtYXgw
+  emailPassword: cGhvbmVsb3NpbmcxMjI0
+kind: Secret
+metadata:
+  labels:
+    app: nextcloud
+  name: nextcloud-nextcloud-app-secrets
+  namespace: nextcloud
+type: Opaque
+---
+apiVersion: v1
+data:
+  rootPassword: MW92ZXJtYXgw
+  userPassword: ZGIyaW5zdDE=
+kind: Secret
+metadata:
+  labels:
+    app: nextcloud
+  name: nextcloud-nextcloud-mariadb-secrets
+  namespace: nextcloud
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nextcloud
+    component: app
+  name: nextcloud-nextcloud-app
+  namespace: nextcloud
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: nextcloud
+    component: app
+    tier: frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nextcloud
+  name: nextcloud-nextcloud-mariadb
+  namespace: nextcloud
+spec:
+  clusterIP: None
+  ports:
+  - port: 3306
+  selector:
+    app: nextcloud
+    component: mariadb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nextcloud
+    component: redis
+  name: nextcloud-nextcloud-redis
+  namespace: nextcloud
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: nextcloud
+    component: redis
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  labels:
+    app: nextcloud
+    type: local
+  name: nextcloud-nextcloud-nfs-share
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 5Gi
+  hostPath:
+    path: /mnt/ssd/nextcloud_db
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  labels:
+    app: nextcloud
+    type: local
+  name: nextcloud-nextcloud-share
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 50Gi
+  hostPath:
+    path: /mnt/ssd/nextcloud_app
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: nextcloud
+  name: nextcloud-nextcloud-app-pvc
+  namespace: nextcloud
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: manual
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: nextcloud
+  name: nextcloud-nextcloud-mariadb-pvc
+  namespace: nextcloud
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: manual
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nextcloud
+    component: app
+    tier: frontend
+  name: nextcloud-nextcloud-app
+  namespace: nextcloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+      component: app
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+        component: app
+        tier: frontend
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_HOST
+          value: nextcloud-mariadb
+        - name: REDIS_HOST
+          value: nextcloud-redis
+        - name: MYSQL_DATABASE
+          value: nextcloud_db
+        - name: MYSQL_USER
+          value: nextcloud_user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: userPassword
+              name: nextcloud-nextcloud-mariadb-secrets
+        - name: MYSQl_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: rootPassword
+              name: nextcloud-nextcloud-mariadb-secrets
+        - name: NEXTCLOUD_ADMIN_USER
+          value: admin
+        - name: NEXTCLOUD_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: adminPassword
+              name: nextcloud-nextcloud-app-secrets
+        - name: NEXTCLOUD_TRUSTED_DOMAINS
+          value: nextcloud.kube.home nextcloud.kokweng.net
+        - name: SMTP_HOST
+          value: smtp.gmail.com
+        - name: SMTP_SECURE
+          value: tls
+        - name: SMTP_PORT
+          value: "587"
+        - name: SMTP_AUTHTYPE
+          value: LOGIN
+        - name: SMTP_NAME
+          value: cheahkokweng@gmail.com
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: emailPassword
+              name: nextcloud-nextcloud-app-secrets
+        - name: MAIL_FROM_ADDRESS
+          value: noreply@kokweng.net
+        - name: MAIL_DOMAIN
+          value: kokweng.net
+        image: nextcloud:apache
+        imagePullPolicy: Always
+        name: nextcloud
+        ports:
+        - containerPort: 80
+          name: nextcloud
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: app-persistent-storage
+      restartPolicy: Always
+      volumes:
+      - name: app-persistent-storage
+        persistentVolumeClaim:
+          claimName: nextcloud-nextcloud-app-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nextcloud
+    component: mariadb
+  name: nextcloud-nextcloud-mariadb
+  namespace: nextcloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+      component: mariadb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+        component: mariadb
+    spec:
+      containers:
+      - args:
+        - --transaction-isolation=READ-COMMITTED
+        - --binlog-format=ROW
+        - --max-connections=1000
+        - --innodb-read-only-compressed=OFF
+        env:
+        - name: MYSQL_DATABASE
+          value: nextcloud_db
+        - name: MYSQL_USER
+          value: nextcloud_user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: userPassword
+              name: nextcloud-nextcloud-mariadb-secrets
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: rootPassword
+              name: nextcloud-nextcloud-mariadb-secrets
+        image: mariadb:latest
+        name: mariadb
+        ports:
+        - containerPort: 3306
+          name: mariadb
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mariadb-persistent-storage
+      restartPolicy: Always
+      volumes:
+      - name: mariadb-persistent-storage
+        persistentVolumeClaim:
+          claimName: nextcloud-nextcloud-mariadb-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nextcloud
+    component: redis
+  name: nextcloud-nextcloud-redis
+  namespace: nextcloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+        component: redis
+    spec:
+      containers:
+      - image: redis:alpine
+        name: redis
+        ports:
+        - containerPort: 6379
+          name: redis
+      restartPolicy: Always
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+  labels:
+    app: nextcloud
+    component: app
+  name: nextcloud-nextcloud-ingress
+  namespace: nextcloud
+spec:
+  rules:
+  - host: nextcloud.kokweng.net
+    http:
+      paths:
+      - backend:
+          service:
+            name: nextcloud-nextcloud-app
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - nextcloud.kokweng.net
+    secretName: nextcloud-prod-tls
