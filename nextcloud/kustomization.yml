@@ -1,5 +1,4 @@
 namespace: nextcloud
-namePrefix: nextcloud-
 
 commonLabels:
   app: nextcloud
