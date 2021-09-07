@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size:  "50m"
+  name: grafana-ingress
+  namespace: monitoring
+  labels:
+    app: grafana
+    component: app
+spec:
+  tls:
+  - hosts:
+    - cheah.noip.me
+    secretName: grafana-prod-tls
+  rules:
+  - host: cheah.noip.me
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: grafana
+            port:
+              name: http
