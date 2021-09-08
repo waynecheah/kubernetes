@@ -1,0 +1,13 @@
+namespace: mongodb
+
+commonLabels:
+  app: mongodb
+
+bases:
+  - persistentvolume.yml
+  - statefulset.yml
+  - service.yml
+
+# kubectl port-forward svc/mongo 27017:27017 -n mongodb
+# kubectl exec -ti mongo-0 mongo -n mongodb
+# rs.initiate()
